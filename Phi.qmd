@@ -1,0 +1,175 @@
+---
+title: "Phi"
+format: html
+editor: visual
+---
+
+## Función Característica: Empírica vs. Teórica
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(viridisLite)
+
+set.seed(1234)
+```
+
+```{r}
+n <- 200
+t_vals <- seq(-10, 10, length.out = 200)
+
+# Función característica empírica // es la misma para todas las funciones
+phi_empirica <- function(t, x) {
+  sapply(t, function(ti) {
+    mean(exp(1i * ti * x))
+  })
+}
+
+#Phi teorica debe definirse antes para su uso en crear_df
+
+```
+
+```{r}
+
+#################FLUJO############
+
+#Crear dataframe
+
+crear_df <- function(t_vals, muestra){
+  # Calcular valores
+phi_teo_vals <- phi_teorica(t_vals) #OJOOOOOO!!!
+phi_emp_vals <- phi_empirica(t_vals, muestra)
+
+# Crear df en formato largo 
+df_complex <- data.frame(
+  t = rep(t_vals, 2),
+  Re = c(Re(phi_teo_vals), Re(phi_emp_vals)),
+  Im = c(Im(phi_teo_vals), Im(phi_emp_vals)),
+  Tipo = factor(rep(c("Teórica", "Empírica"), each = length(t_vals)))
+)
+
+return(df_complex)
+}
+
+#Plots
+
+crear_plot <- function(df, y, titulo, color1, color2) {
+  ggplot(df, aes(x = t, y = .data[[y]], color = Tipo, linetype = Tipo)) +
+    geom_line(linewidth = 0.5) +
+    labs(title = titulo, x = "t", y = "Valor") +
+    scale_linetype_manual(values = c("Teórica" = "solid", "Empírica" = "dashed")) +
+    scale_color_manual(values = c("Teórica" = color1, "Empírica" = color2)) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+}
+
+crear_plot_complex <- function(df, titulo){
+   ggplot(df, aes(x = Re, y = Im, color = Tipo, linetype = Tipo)) +
+  geom_path(size = 0.6) +
+  labs(title = titulo, x = "Parte Real", y = "Parte Imaginaria") +
+  coord_fixed() +  
+  theme_minimal() +
+  scale_linetype_manual(values = c("Teórica" = "solid", "Empírica" = "dashed")) +
+  theme(legend.title = element_blank())
+}
+```
+
+```{r}
+###### EXPONENCIAL ######
+# Parámetro
+lambda <- 1
+
+# Generar muestra
+muestra <- rexp(n, rate = lambda)
+
+# Función característica teórica
+phi_teorica <- function(t) {
+  lambda / (lambda - 1i * t)
+}
+
+data_exp <- crear_df(t_vals, muestra)
+#Parte real
+data_exp |> crear_plot(y = "Re", 
+            "Función Característica (Exponencial): Parte Real", "blue", "red") 
+#Parte Im
+data_exp |> crear_plot(y = "Im", 
+        "Función Característica (Exponencial): Parte Imaginaria", "blue", "red") 
+    
+data_exp |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.6, 0.6) 
+```
+
+```{r}
+###### POISSON ######
+
+# Generar muestra de Poisson
+lambda <- 1
+muestra <- rpois(n, lambda)
+
+# Función característica teórica de Poisson
+phi_teorica <- function(t) {
+  exp(lambda * (exp(1i * t) - 1))
+}
+
+data_poi <- crear_df(t_vals, muestra)
+#Parte real
+data_poi |> crear_plot(y = "Re", 
+         "Función Característica  (Poisson): Parte Real", "green", "darkorange") 
+#Parte Im
+data_poi |> crear_plot(y = "Im", 
+    "Función Característica  (Poisson): Parte Imaginaria","green", "darkorange") 
+
+data_poi |> crear_plot_complex("Función Característica (Poisson) en el Plano Complejo") + xlim(0, 1.1) + ylim(-0.6, 0.6)
+```
+
+```{r}
+###### NORMAL ######
+
+# Parámetros
+mu <- 0
+sigma <- 1
+
+# Generar muestra normal
+muestra <- rnorm(n, mean = mu, sd = sigma)
+
+# Función característica teórica de la normal
+phi_teorica <- function(t) {
+  exp(1i * mu * t - 0.5 * sigma^2 * t^2)
+}
+
+data_norm <- crear_df(t_vals, muestra)
+
+data_norm |> crear_plot(y = "Re", 
+         "Función Característica (Exponencial): Parte Real", "darkgreen", "brown") 
+#Parte Im
+data_norm |> crear_plot(y = "Im", 
+    "Función Característica (Exponencial): Parte Imaginaria", "darkgreen", "brown") 
+data_norm |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.2, 0.2)
+
+```
+
+```{r}
+###### MEZCLA DE NORMALES ######
+
+# Mezcla: 0.7 * N(0,1) + 0.3 * N(2,4)
+componentes <- sample(c(1, 2), size = n, replace = TRUE, prob = c(0.7, 0.3))
+
+# Generar muestras
+muestra <- numeric(n)
+muestra[componentes == 1] <- rnorm(sum(componentes == 1), mean = 0, sd = 1)
+muestra[componentes == 2] <- rnorm(sum(componentes == 2), mean = 2, sd = 2)  # sd = sqrt(4)
+
+# Función característica teórica de la mezcla TEOREMA
+phi_teorica <- function(t) {
+  phi1 <- function(t) exp(-0.5 * t^2)                   # N(0,1)
+  phi2 <- function(t) exp(1i * 2 * t - 0.5 * 4 * t^2)   # N(2,4)
+  0.7 * phi1(t) + 0.3 * phi2(t)
+}
+
+data_mezcla_norm <- crear_df(t_vals, muestra)
+
+data_mezcla_norm |> crear_plot(y = "Re", 
+         "Función Característica (Exponencial): Parte Real", "blue", "orange") 
+#Parte Im
+data_mezcla_norm |> crear_plot(y = "Im", 
+    "Función Característica (Exponencial): Parte Imaginaria", "blue", "orange") 
+data_mezcla_norm |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.2, 0.2)
+```
