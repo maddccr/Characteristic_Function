@@ -4,39 +4,35 @@ format: html
 editor: visual
 ---
 
-## Función Característica: Empírica vs. Teórica
+# Función Característica
 
 ```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(viridisLite)
+library(parallel)
 
-set.seed(1234)
+set.seed(123)
 ```
 
 ```{r}
-n <- 200
-t_vals <- seq(-10, 10, length.out = 200)
+n <- 500 #tamano de la muestra
+t_vals <- seq(-5, 5, length.out = 200) #valores de t para la FC
 
-# Función característica empírica // es la misma para todas las funciones
+# Función característica empírica - FCE
 phi_empirica <- function(t, x) {
   sapply(t, function(ti) {
     mean(exp(1i * ti * x))
   })
 }
 
-#Phi teorica debe definirse antes para su uso en crear_df
-
 ```
 
 ```{r}
-
-#################FLUJO############
-
-#Crear dataframe
+#Crear dataframe para los plots
 
 crear_df <- function(t_vals, muestra){
-  # Calcular valores
-phi_teo_vals <- phi_teorica(t_vals) #OJOOOOOO!!!
+# Calcular valores
+phi_teo_vals <- phi_teorica(t_vals) 
 phi_emp_vals <- phi_empirica(t_vals, muestra)
 
 # Crear df en formato largo 
@@ -49,22 +45,245 @@ df_complex <- data.frame(
 
 return(df_complex)
 }
+```
 
-#Plots
+# Mezcla de Normales
+
+```{r}
+# Mezcla: 0.7 * N(0,1) + 0.3 * N(2,4)
+componentes <- sample(c(1, 2), size = n, replace = TRUE, prob = c(0.7, 0.3))
+
+# Generar muestras // sd = sqrt(4)
+muestra <- numeric(n)
+muestra[componentes == 1] <- rnorm(sum(componentes == 1), mean = 0, sd = 1)
+muestra[componentes == 2] <- rnorm(sum(componentes == 2), mean = 2, sd = 2)
+
+
+# Función característica teórica de la mezcla
+phi_teorica <- function(t) {
+  phi1 <- function(t) exp(-0.5 * t^2)                   # N(0,1)
+  phi2 <- function(t) exp(1i * 2 * t - 0.5 * 4 * t^2)   # N(2,4)
+  0.7 * phi1(t) + 0.3 * phi2(t)
+} 
+
+```
+
+## Distribución Acumulada Teórica vs Empírica
+
+```{r}
+# Función de distribución teórica (CDF)
+cdf <- function(x) {
+  0.7 * pnorm(x, mean = 0, sd = 1) + 0.3 * pnorm(x, mean = 2, sd = 2)
+} 
+
+# Función de distribución empírica (ECDF)
+ecdf_emp <- ecdf(muestra)
+
+#Valores de x (evaluar las funciones)
+x_vals <- seq(min(muestra) - 1, max(muestra) + 1, length.out = 300)
+
+y_teo <- cdf(x_vals)
+y_emp <- ecdf_emp(x_vals)
+
+plot_base <- ggplot() +  
+  scale_color_manual(values = c("Teórica" = "red", "Empírica" = "blue")) +
+  scale_linetype_manual(values = c("Teórica" = "solid", "Empírica" = "dashed")) +
+  theme_minimal() + guides(linetype = "none") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 13),legend.title = element_blank())
+
+plot_base + 
+  geom_line(aes(x = x_vals, y = y_teo,
+                color = "Teórica", linetype = "Teórica"), size = 1) +
+  geom_line(aes(x = x_vals, y = y_emp,
+                color = "Empírica", linetype = "Empírica"), size = 1) +  
+  labs(title = "Función de Distribución Teórica vs Empírica", x = "x", 
+       y = "F(x)", color = "Función") +
+  theme(legend.position = c(0.9, 0.1))
+
+
+```
+
+## Densidad Teórica vs Empírica
+
+```{r}
+
+# Densidad teórica de la mezcla
+densidad_teorica <- function(x) {
+  0.7 * dnorm(x, mean = 0, sd = 1) + 0.3 * dnorm(x, mean = 2, sd = 2)
+}
+
+# Densidad estimada con density()
+densidad_estimada <- density(muestra)
+
+x_vals <- densidad_estimada$x
+
+plot_base + 
+  geom_line(aes(x = x_vals, y = densidad_teorica(x_vals),
+                color = "Teórica", linetype = "Teórica"), size = 1) +
+  geom_line(aes(x = x_vals, y = densidad_estimada$y,
+                color = "Empírica", linetype = "Empírica"), size = 1) +  
+  labs(title = "Densidad Teórica vs Empírica", x = "x", y = "Densidad", 
+       color = "Función") +
+  theme(legend.position = c(0.9, 0.9))
+  
+```
+
+## Función Característica: Empírica vs. Teórica
+
+```{r}
+data_mezcla <- crear_df(t_vals, muestra) 
+```
+
+```{r}
+#Plots .data[[y]]
 
 crear_plot <- function(df, y, titulo, color1, color2) {
-  ggplot(df, aes(x = t, y = .data[[y]], color = Tipo, linetype = Tipo)) +
-    geom_line(linewidth = 0.5) +
+  
+  y_teo <- df[df$Tipo == "Teórica", y]
+  y_emp <- df[df$Tipo == "Empírica", y]
+  t <- df[df$Tipo == "Empírica", "t"]
+
+  ggplot() +
+   geom_line(aes(x = t, y = y_teo,
+                color = "Teórica", linetype = "Teórica"), size = 1) +
+   geom_line(aes(x = t, y = y_emp,
+                color = "Empírica", linetype = "Empírica"), size = 1) +
     labs(title = titulo, x = "t", y = "Valor") +
     scale_linetype_manual(values = c("Teórica" = "solid", "Empírica" = "dashed")) +
     scale_color_manual(values = c("Teórica" = color1, "Empírica" = color2)) +
+  theme_minimal() + guides(linetype = "none") +
+  theme(legend.title = element_blank(), legend.position = c(0.9, 0.9), 
+        plot.title = element_text(hjust = 0.5, size = 13))
+}
+```
+
+## Parte Real
+
+```{r}
+
+crear_plot(data_mezcla, "Re","Función Característica: Parte Real", "red", "blue")
+
+```
+
+## Parte Imaginaria
+
+```{r}
+crear_plot(data_mezcla, "Im", "Función Característica: Parte Imaginaria", "red", "blue")
+
+```
+
+## Plano Complejo
+
+```{r}
+
+crear_plot_complex_t <- function(df, titulo) {
+  ggplot(df, aes(x = Re, y = Im, color = t, alpha = Tipo)) +
+  geom_path(size = 0.8) +
+  scale_color_viridis_c(option = "plasma") +
+  scale_alpha_manual(values = c("Teórica" = 1, "Empírica" = 0.5)) +
+  labs(title = titulo, x = "Parte Real", y = "Parte Imaginaria",
+       color = "Valor de t", alpha = "") +
+  coord_fixed() +  
   theme_minimal() +
-  theme(legend.title = element_blank())
+  theme(plot.title = element_text(hjust = 0.5, size = 13))
 }
 
+crear_plot_complex_t(data_mezcla,"Función Característica en el Plano Complejo") +
+  xlim(-0.1, 1.1) +
+  ylim(-0.25, 0.25) 
+  #xlim(-0.05, 1.05) +
+  #ylim(-0.2, 0.2) 
+
+```
+
+# Test de simetria 
+
+```{r}
+
+simumezcla<-function(p,n=200){ 
+  n1<-rbinom(1,n,1-p)
+  n2<- n-n1
+  c(rnorm(n1),rnorm(n2,2,3))
+}
+```
+
+```{r}
+#Bcantidad de replicas para estimar las probabilidades bajo H_0 cierta mediante boostrap.
+#Tmax es el valor maximo de la grilla donde se calcula el estadistico
+#grid_len cantidad de puntos de la grilla
+#pvalor es la funcion que me devuelve el pavalor de la muestra x
+
+pvalor <- function(x, B = 1599,
+                   T_max = 2, grid_len = 200,seed = 123) {
+  
+  n<- length(x)
+  # Rejilla de t donde evaluar la FCE (simetrica alrededor de 0)
+  tgrid <- seq(-T_max, T_max, length.out = grid_len)
+  
+  # Parte imaginaria de la FCE y estadistico KS sobre t
+  Im_phi <- sapply(tgrid, function(t) mean(sin(t * x)))
+  T_obs  <- max(abs(Im_phi))  # KS sobre la curva imaginaria (vs 0)
+  
+  # Bootstrap por signos (invariante bajo H0)
+  set.seed(seed)
+  T_boot <- numeric(B)
+  for (b in 1:B) {
+    eps <- sample(c(-1, 1), size = n, replace = TRUE)
+    xb  <- eps * x
+    Im_phi_b <- sapply(tgrid, function(t) mean(sin(t * xb)))
+    T_boot[b] <- max(abs(Im_phi_b))
+  }
+  
+  # p-valor 
+  pval <-  sum(T_boot >= T_obs) / B 
+  
+  return(pval)
+}
+```
+
+```{r}
+alfa=0.05
+#OJO CON P!!!!
+
+potencia<-function(p,alfa=0.05,NN=500){
+pval<-c() ##logical(NN)
+for(ii in 1:NN){
+  #print(ii) por que hacer print?
+  pval[ii]<- pvalor(simumezcla(p)) < alfa }
+  mean(pval)
+}
+```
+
+```{r}
+potencia_parallel <- function(p, alfa = 0.05, NN = 1000) {
+  cores <- detectCores() - 1
+  cl <- makeCluster(cores)
+  
+  # Exportar funciones y variables al cluster
+  clusterExport(cl, varlist = c("pvalor", "simumezcla", "p", "alfa"), envir = .GlobalEnv)
+  
+  res <- parLapply(cl, 1:NN, function(ii) {
+    pvalor(simumezcla(p)) < alfa
+  })
+  
+  stopCluster(cl)
+  mean(unlist(res))
+}
+```
+
+```{r}
+grilla <- seq(0, 1, 0.1)
+PP <- sapply(grilla, potencia_parallel)
+plot(grilla, PP, type = "l")
+abline(h = 0.05, col = "red", lty = 2) #nivel de sig
+```
+
+# EXTRA: FC de otras distribuciones 
+
+```{r}
 crear_plot_complex <- function(df, titulo){
    ggplot(df, aes(x = Re, y = Im, color = Tipo, linetype = Tipo)) +
-  geom_path(size = 0.6) +
+  geom_path(size = 0.8) +
   labs(title = titulo, x = "Parte Real", y = "Parte Imaginaria") +
   coord_fixed() +  
   theme_minimal() +
