@@ -91,7 +91,7 @@ plot_base <- ggplot() +
   theme_minimal() + guides(linetype = "none") + 
   theme(plot.title = element_text(hjust = 0.5, size = 13),legend.title = element_blank())
 
-plot_base + 
+acummez <- plot_base + 
   geom_line(aes(x = x_vals, y = y_teo,
                 color = "Teórica", linetype = "Teórica"), size = 1) +
   geom_line(aes(x = x_vals, y = y_emp,
@@ -100,7 +100,9 @@ plot_base +
        y = "F(x)", color = "Función") +
   theme(legend.position = c(0.9, 0.1))
 
+acummez
 
+#ggsave("MezclaAcumulada2.pdf", acummez, width = 6, height = 4)
 ```
 
 ## Densidad Teórica vs Empírica
@@ -117,7 +119,7 @@ densidad_estimada <- density(muestra)
 
 x_vals <- densidad_estimada$x
 
-plot_base + 
+densidadmez <- plot_base + 
   geom_line(aes(x = x_vals, y = densidad_teorica(x_vals),
                 color = "Teórica", linetype = "Teórica"), size = 1) +
   geom_line(aes(x = x_vals, y = densidad_estimada$y,
@@ -125,7 +127,10 @@ plot_base +
   labs(title = "Densidad Teórica vs Empírica", x = "x", y = "Densidad", 
        color = "Función") +
   theme(legend.position = c(0.9, 0.9))
+
+densidadmez
   
+#ggsave("MezclaDensidad2.pdf", densidadmez, width = 6, height = 4)
 ```
 
 ## Función Característica: Empírica vs. Teórica
@@ -161,15 +166,21 @@ crear_plot <- function(df, y, titulo, color1, color2) {
 
 ```{r}
 
-crear_plot(data_mezcla, "Re","Función Característica: Parte Real", "red", "blue")
+p_real <- crear_plot(data_mezcla, "Re","Función Característica: Parte Real", "red", "blue")
+
+p_real
+#ggsave("parte_real2.pdf", p_real, width = 6, height = 4)
 
 ```
 
 ## Parte Imaginaria
 
 ```{r}
-crear_plot(data_mezcla, "Im", "Función Característica: Parte Imaginaria", "red", "blue")
+p_imag <- crear_plot(data_mezcla, "Im", "Función Característica: Parte Imaginaria", "red", "blue")
 
+p_imag
+
+#ggsave("parte_imag2.pdf", p_imag, width = 6, height = 4)
 ```
 
 ## Plano Complejo
@@ -177,28 +188,113 @@ crear_plot(data_mezcla, "Im", "Función Característica: Parte Imaginaria", "red
 ```{r}
 
 crear_plot_complex_t <- function(df, titulo) {
-  ggplot(df, aes(x = Re, y = Im, color = t, alpha = Tipo)) +
-  geom_path(size = 0.8) +
-  scale_color_viridis_c(option = "plasma") +
-  scale_alpha_manual(values = c("Teórica" = 1, "Empírica" = 0.5)) +
-  labs(title = titulo, x = "Parte Real", y = "Parte Imaginaria",
-       color = "Valor de t", alpha = "") +
-  coord_fixed() +  
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 13))
+  ggplot(df) +
+    geom_path(data = subset(df, Tipo == "Teórica"),
+      aes(x = Re, y = Im, color = t, linetype = Tipo),size = 0.8) +
+    geom_path(data = subset(df, Tipo == "Empírica"),
+              aes(x = Re, y = Im, linetype = Tipo),color = "black", size = 0.8) +
+    scale_color_viridis_c(option = "plasma") +
+    scale_linetype_manual(values = c("Teórica" = "solid", "Empírica" = "dashed")) +
+    labs(title = titulo, x = "Parte Real", y = "Parte Imaginaria",
+      color = "Valor de t",linetype = "") +
+    coord_fixed() +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 13))
 }
 
-crear_plot_complex_t(data_mezcla,"Función Característica en el Plano Complejo") +
+p_comp <- crear_plot_complex_t(data_mezcla,"Función Característica en el Plano Complejo") +
   xlim(-0.1, 1.1) +
   ylim(-0.25, 0.25) 
   #xlim(-0.05, 1.05) +
   #ylim(-0.2, 0.2) 
 
+p_comp
+
+#ggsave(filename = "MezclaNormalComp.pdf", plot = p_comp, width = 11.69, 
+       #height = 5,units = "in",dpi = 300)
 ```
 
-# Test de simetria 
+# Test de simetria
 
-```{r}
+(Con eval = FALSE, no se ejecuta automaticamente, "run all")
+
+Bajo suposicion de distribucion libre del estadistico.
+
+```{r, eval = FALSE}
+#############simula de la mezcla
+
+n=500
+NN<-10000
+simumezcla<-function(p,n=500){ 
+  
+  n1<-rbinom(1,n,1-p)
+  n2<- n-n1
+  c(rnorm(n1),rnorm(n2,2,2))
+}
+x=simumezcla(0.7)
+```
+
+```{r, eval = FALSE}
+p=0
+
+simus<-replicate(NN,simumezcla(p))
+dim(simus)
+
+T_max = 2
+grid_len = 20 #solo 20 
+tgrid <- seq(-T_max, T_max, length.out = grid_len)
+Im_phi <- function(x){
+  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
+  max(abs(imagen)) 
+
+}
+estadisticos<-apply(simus, 2, Im_phi)
+K<-quantile(estadisticos,0.95)
+
+```
+
+```{r, eval = FALSE}
+
+pp<-seq(0,1,0.1)
+pvalor<-c()
+for(jj in 1:length(pp)){ print(jj)
+simus<-replicate(NN,simumezcla(pp[jj]))
+
+
+tgrid <- seq(-T_max, T_max, length.out = grid_len)
+Im_phi <- function(x){
+  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
+  max(abs(imagen)) 
+  
+}
+pvalor[jj]<-mean(apply(simus, 2, Im_phi)>K)
+}
+
+plot(pp,pvalor,type="l")
+
+```
+
+```{r, eval = FALSE}
+df <- data.frame(pp = pp, pvalor = pvalor)
+
+plot_potencia <- ggplot(df, aes(x = pp, y = pvalor)) +
+  geom_line(color="blue", size = 0.8) +
+  #geom_line( y = 0.05, color = "black", linetype = "dashed") +
+  labs( title = "Función de Potencia del Test de Simetría",
+    x = "Valor de p",
+    y = "p-valor"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 13))
+
+plot_potencia
+
+ggsave("funcpot.pdf", plot_potencia, width = 6.5, height = 5)
+```
+
+Version a pedal (bootstrap)
+
+```{r, eval = FALSE}
 
 simumezcla<-function(p,n=200){ 
   n1<-rbinom(1,n,1-p)
@@ -207,7 +303,7 @@ simumezcla<-function(p,n=200){
 }
 ```
 
-```{r}
+```{r, eval = FALSE}
 #Bcantidad de replicas para estimar las probabilidades bajo H_0 cierta mediante boostrap.
 #Tmax es el valor maximo de la grilla donde se calcula el estadistico
 #grid_len cantidad de puntos de la grilla
@@ -241,7 +337,7 @@ pvalor <- function(x, B = 1599,
 }
 ```
 
-```{r}
+```{r, eval = FALSE}
 alfa=0.05
 #OJO CON P!!!!
 
@@ -254,7 +350,7 @@ for(ii in 1:NN){
 }
 ```
 
-```{r}
+```{r, eval = FALSE}
 potencia_parallel <- function(p, alfa = 0.05, NN = 1000) {
   cores <- detectCores() - 1
   cl <- makeCluster(cores)
@@ -271,14 +367,14 @@ potencia_parallel <- function(p, alfa = 0.05, NN = 1000) {
 }
 ```
 
-```{r}
+```{r, eval = FALSE}
 grilla <- seq(0, 1, 0.1)
 PP <- sapply(grilla, potencia_parallel)
 plot(grilla, PP, type = "l")
 abline(h = 0.05, col = "red", lty = 2) #nivel de sig
 ```
 
-# EXTRA: FC de otras distribuciones 
+# EXTRA: FC de otras distribuciones
 
 ```{r}
 crear_plot_complex <- function(df, titulo){
