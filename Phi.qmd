@@ -15,7 +15,7 @@ set.seed(123)
 ```
 
 ```{r}
-n <- 500 #tamano de la muestra
+n <- 500 #tamaño de la muestra
 t_vals <- seq(-5, 5, length.out = 200) #valores de t para la FC
 
 # Función característica empírica - FCE
@@ -214,167 +214,7 @@ p_comp
        #height = 5,units = "in",dpi = 300)
 ```
 
-# Test de simetria
-
-(Con eval = FALSE, no se ejecuta automaticamente, "run all")
-
-Bajo suposicion de distribucion libre del estadistico.
-
-```{r, eval = FALSE}
-#############simula de la mezcla
-
-n=500
-NN<-10000
-simumezcla<-function(p,n=500){ 
-  
-  n1<-rbinom(1,n,1-p)
-  n2<- n-n1
-  c(rnorm(n1),rnorm(n2,2,2))
-}
-x=simumezcla(0.7)
-```
-
-```{r, eval = FALSE}
-p=0
-
-simus<-replicate(NN,simumezcla(p))
-dim(simus)
-
-T_max = 2
-grid_len = 20 #solo 20 
-tgrid <- seq(-T_max, T_max, length.out = grid_len)
-Im_phi <- function(x){
-  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
-  max(abs(imagen)) 
-
-}
-estadisticos<-apply(simus, 2, Im_phi)
-K<-quantile(estadisticos,0.95)
-
-```
-
-```{r, eval = FALSE}
-
-pp<-seq(0,1,0.1)
-pvalor<-c()
-for(jj in 1:length(pp)){ print(jj)
-simus<-replicate(NN,simumezcla(pp[jj]))
-
-
-tgrid <- seq(-T_max, T_max, length.out = grid_len)
-Im_phi <- function(x){
-  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
-  max(abs(imagen)) 
-  
-}
-pvalor[jj]<-mean(apply(simus, 2, Im_phi)>K)
-}
-
-plot(pp,pvalor,type="l")
-
-```
-
-```{r, eval = FALSE}
-df <- data.frame(pp = pp, pvalor = pvalor)
-
-plot_potencia <- ggplot(df, aes(x = pp, y = pvalor)) +
-  geom_line(color="blue", size = 0.8) +
-  #geom_line( y = 0.05, color = "black", linetype = "dashed") +
-  labs( title = "Función de Potencia del Test de Simetría",
-    x = "Valor de p",
-    y = "p-valor"
-  ) +
-  theme_minimal() +
-  theme(plot.title = element_text(hjust = 0.5, size = 13))
-
-plot_potencia
-
-ggsave("funcpot.pdf", plot_potencia, width = 6.5, height = 5)
-```
-
-Version a pedal (bootstrap)
-
-```{r, eval = FALSE}
-
-simumezcla<-function(p,n=200){ 
-  n1<-rbinom(1,n,1-p)
-  n2<- n-n1
-  c(rnorm(n1),rnorm(n2,2,3))
-}
-```
-
-```{r, eval = FALSE}
-#Bcantidad de replicas para estimar las probabilidades bajo H_0 cierta mediante boostrap.
-#Tmax es el valor maximo de la grilla donde se calcula el estadistico
-#grid_len cantidad de puntos de la grilla
-#pvalor es la funcion que me devuelve el pavalor de la muestra x
-
-pvalor <- function(x, B = 1599,
-                   T_max = 2, grid_len = 200,seed = 123) {
-  
-  n<- length(x)
-  # Rejilla de t donde evaluar la FCE (simetrica alrededor de 0)
-  tgrid <- seq(-T_max, T_max, length.out = grid_len)
-  
-  # Parte imaginaria de la FCE y estadistico KS sobre t
-  Im_phi <- sapply(tgrid, function(t) mean(sin(t * x)))
-  T_obs  <- max(abs(Im_phi))  # KS sobre la curva imaginaria (vs 0)
-  
-  # Bootstrap por signos (invariante bajo H0)
-  set.seed(seed)
-  T_boot <- numeric(B)
-  for (b in 1:B) {
-    eps <- sample(c(-1, 1), size = n, replace = TRUE)
-    xb  <- eps * x
-    Im_phi_b <- sapply(tgrid, function(t) mean(sin(t * xb)))
-    T_boot[b] <- max(abs(Im_phi_b))
-  }
-  
-  # p-valor 
-  pval <-  sum(T_boot >= T_obs) / B 
-  
-  return(pval)
-}
-```
-
-```{r, eval = FALSE}
-alfa=0.05
-#OJO CON P!!!!
-
-potencia<-function(p,alfa=0.05,NN=500){
-pval<-c() ##logical(NN)
-for(ii in 1:NN){
-  #print(ii) por que hacer print?
-  pval[ii]<- pvalor(simumezcla(p)) < alfa }
-  mean(pval)
-}
-```
-
-```{r, eval = FALSE}
-potencia_parallel <- function(p, alfa = 0.05, NN = 1000) {
-  cores <- detectCores() - 1
-  cl <- makeCluster(cores)
-  
-  # Exportar funciones y variables al cluster
-  clusterExport(cl, varlist = c("pvalor", "simumezcla", "p", "alfa"), envir = .GlobalEnv)
-  
-  res <- parLapply(cl, 1:NN, function(ii) {
-    pvalor(simumezcla(p)) < alfa
-  })
-  
-  stopCluster(cl)
-  mean(unlist(res))
-}
-```
-
-```{r, eval = FALSE}
-grilla <- seq(0, 1, 0.1)
-PP <- sapply(grilla, potencia_parallel)
-plot(grilla, PP, type = "l")
-abline(h = 0.05, col = "red", lty = 2) #nivel de sig
-```
-
-# EXTRA: FC de otras distribuciones
+# EXTRA: Función Característica de otras distribuciones
 
 ```{r}
 crear_plot_complex <- function(df, titulo){
@@ -402,12 +242,13 @@ phi_teorica <- function(t) {
 }
 
 data_exp <- crear_df(t_vals, muestra)
+
 #Parte real
 data_exp |> crear_plot(y = "Re", 
-            "Función Característica (Exponencial): Parte Real", "blue", "red") 
+            "Función Característica (Exponencial): Parte Real",  "red", "blue") 
 #Parte Im
 data_exp |> crear_plot(y = "Im", 
-        "Función Característica (Exponencial): Parte Imaginaria", "blue", "red") 
+        "Función Característica (Exponencial): Parte Imaginaria",  "red", "blue") 
     
 data_exp |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.6, 0.6) 
 ```
@@ -427,10 +268,10 @@ phi_teorica <- function(t) {
 data_poi <- crear_df(t_vals, muestra)
 #Parte real
 data_poi |> crear_plot(y = "Re", 
-         "Función Característica  (Poisson): Parte Real", "green", "darkorange") 
+         "Función Característica  (Poisson): Parte Real",  "darkorange", "green") 
 #Parte Im
 data_poi |> crear_plot(y = "Im", 
-    "Función Característica  (Poisson): Parte Imaginaria","green", "darkorange") 
+    "Función Característica  (Poisson): Parte Imaginaria", "darkorange", "green") 
 
 data_poi |> crear_plot_complex("Función Característica (Poisson) en el Plano Complejo") + xlim(0, 1.1) + ylim(-0.6, 0.6)
 ```
@@ -452,39 +293,39 @@ phi_teorica <- function(t) {
 
 data_norm <- crear_df(t_vals, muestra)
 
+#Parte real
 data_norm |> crear_plot(y = "Re", 
-         "Función Característica (Exponencial): Parte Real", "darkgreen", "brown") 
+         "Función Característica (Normal): Parte Real", "darkgreen", "brown") 
 #Parte Im
 data_norm |> crear_plot(y = "Im", 
-    "Función Característica (Exponencial): Parte Imaginaria", "darkgreen", "brown") 
-data_norm |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.2, 0.2)
+    "Función Característica (Normal): Parte Imaginaria", "darkgreen", "brown") 
+data_norm |> crear_plot_complex("Función Característica (Normal) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.2, 0.2)
 
 ```
 
 ```{r}
-###### MEZCLA DE NORMALES ######
+###### BINOMIAL ######
 
-# Mezcla: 0.7 * N(0,1) + 0.3 * N(2,4)
-componentes <- sample(c(1, 2), size = n, replace = TRUE, prob = c(0.7, 0.3))
+# Parámetros
+size_binom <- 10   # número de ensayos por variable
+prob_binom <- 0.3  # probabilidad de éxito
 
-# Generar muestras
-muestra <- numeric(n)
-muestra[componentes == 1] <- rnorm(sum(componentes == 1), mean = 0, sd = 1)
-muestra[componentes == 2] <- rnorm(sum(componentes == 2), mean = 2, sd = 2)  # sd = sqrt(4)
+# Generar muestra binomial
+muestra <- rbinom(n, size = size_binom, prob = prob_binom)
 
-# Función característica teórica de la mezcla TEOREMA
+# Función característica teórica de la Binomial
 phi_teorica <- function(t) {
-  phi1 <- function(t) exp(-0.5 * t^2)                   # N(0,1)
-  phi2 <- function(t) exp(1i * 2 * t - 0.5 * 4 * t^2)   # N(2,4)
-  0.7 * phi1(t) + 0.3 * phi2(t)
+  (1 - prob_binom + prob_binom * exp(1i * t))^size_binom
 }
 
-data_mezcla_norm <- crear_df(t_vals, muestra)
+data_bin <- crear_df(t_vals, muestra)
 
-data_mezcla_norm |> crear_plot(y = "Re", 
-         "Función Característica (Exponencial): Parte Real", "blue", "orange") 
+#Parte real
+data_bin |> crear_plot(y = "Re", 
+         "Función Característica (Binomial): Parte Real", "red", "darkcyan") 
 #Parte Im
-data_mezcla_norm |> crear_plot(y = "Im", 
-    "Función Característica (Exponencial): Parte Imaginaria", "blue", "orange") 
-data_mezcla_norm |> crear_plot_complex("Función Característica (Exponencial) en el Plano Complejo") + xlim(-0.1, 1.1) + ylim(-0.2, 0.2)
+data_bin |> crear_plot(y = "Im", 
+    "Función Característica (Binomial): Parte Imaginaria", "red", "darkcyan") 
+
+data_bin |> crear_plot_complex("Función Característica (Binomial): en el Plano Complejo") + xlim(-1.1, 1.1) + ylim(-1.1, 1.1)
 ```

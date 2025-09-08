@@ -1,0 +1,101 @@
+---
+title: "Test de simetria"
+author: "Leonardo M., Madeline C., Gustavo M."
+format: html
+editor: visual
+---
+
+# Test de Simetría
+
+Por el Teorema de Simetría, se puede afirmar que una VA es simétrica respecto a cero si la parte imaginaria de su FC es igual a cero. Se plantea el siguiente contraste de hipótesis
+
+$$
+H_0 : X \text{ es simétrica respecto de 0. } Im\{\varphi(t)\} = 0.
+$$
+
+$$
+H_1 : X \text{ no es simétrica respecto de 0. } Im\{\varphi(t)\} \neq 0.
+$$
+
+El estadistico propuesto:
+
+$$
+ D_n = \sup_t \, \left| \text{Im} \left( \varphi_n(t) \right) \right| =  \sup_t \, \left| \frac{1}{n}\sum_{i=1}^{n}{sen(tX_i)} \right|
+$$
+
+Es del tipo Kolmogorov-Smirnov, por lo que se asume distribución libre.
+
+```{r}
+#############simulación de la mezcla
+
+n=500
+NN<-10000
+simumezcla<-function(p,n=500){ 
+  
+  n1<-rbinom(1,n,1-p)
+  n2<- n-n1
+  c(rnorm(n1),rnorm(n2,2,2))
+}
+x=simumezcla(0.7)
+```
+
+```{r}
+p=0
+
+simus<-replicate(NN,simumezcla(p))
+dim(simus)
+
+T_max = 2
+grid_len = 20 #?
+tgrid <- seq(-T_max, T_max, length.out = grid_len)
+Im_phi <- function(x){
+  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
+  max(abs(imagen)) 
+
+}
+estadisticos<-apply(simus, 2, Im_phi)
+K<-quantile(estadisticos,0.95)
+
+```
+
+```{r}
+
+pp<-seq(0,1,0.1)
+pvalor<-c()
+for(jj in 1:length(pp)){ print(jj)
+simus<-replicate(NN,simumezcla(pp[jj]))
+
+
+tgrid <- seq(-T_max, T_max, length.out = grid_len)
+Im_phi <- function(x){
+  imagen<-sapply(tgrid, function(t) mean(sin(t * x)))
+  max(abs(imagen)) 
+  
+}
+pvalor[jj]<-mean(apply(simus, 2, Im_phi)>K)
+}
+
+plot(pp,pvalor,type="l")
+
+```
+
+```{r}
+
+df <- data.frame(pp = pp, pvalor = pvalor)
+
+plot_potencia <- ggplot(df, aes(x = pp, y = pvalor)) +
+  geom_line(color="blue", size = 0.8) +
+  #geom_line( y = 0.05, color = "black", linetype = "dashed") +
+  labs( title = "Función de Potencia del Test de Simetría",
+    x = "Valor de p",
+    y = "p-valor"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 13))
+
+plot_potencia
+
+#ggsave("funcpot.pdf", plot_potencia, width = 6.5, height = 5)
+```
+
+# 
